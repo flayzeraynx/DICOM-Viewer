@@ -677,7 +677,7 @@ const DicomViewer = () => {
         </div>
       )}
 
-      {/* Viewer Modal */}
+      {/* Enhanced DICOM Viewer Modal */}
       {currentViewer && (
         <div className="modal viewer-modal active">
           <div className="modal-container" style={{ width: '95%', height: '95%', display: 'flex', flexDirection: 'column' }}>
@@ -698,61 +698,226 @@ const DicomViewer = () => {
                 </button>
               </div>
             </div>
-            <div style={{
-              flex: 1,
-              display: 'flex',
-              background: '#f8fafc'
-            }}>
-              {/* Main Viewer Area */}
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
-                <div style={{ textAlign: 'center', color: '#64748b' }}>
-                  {currentViewer.thumbnail ? (
-                    <div>
-                      <img 
-                        src={currentViewer.thumbnail} 
-                        alt={currentViewer.title}
-                        style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain', borderRadius: '8px', boxShadow: 'var(--shadow-md)' }}
-                      />
-                      <h3 style={{ marginTop: '20px', color: 'var(--text-primary)' }}>{currentViewer.title}</h3>
-                      <p>Image viewer - {currentViewer.fileName}</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <i className={getFileIcon(currentViewer.fileName, currentViewer.type)} style={{
-                        fontSize: '120px',
-                        marginBottom: '24px',
-                        opacity: 0.6,
-                        color: currentViewer.type === 'dicom' ? 'var(--primary-color)' : 'var(--text-muted)'
-                      }}></i>
-                      <h3 style={{ color: 'var(--text-primary)', marginBottom: '12px' }}>{currentViewer.title}</h3>
-                      <div style={{ background: 'white', padding: '16px', borderRadius: '8px', boxShadow: 'var(--shadow-sm)', maxWidth: '400px', margin: '0 auto' }}>
-                        <p style={{ fontWeight: '500', marginBottom: '8px' }}>File: {currentViewer.fileName}</p>
-                        <p style={{ fontSize: '14px', marginBottom: '8px' }}>Size: {currentViewer.fileSize}</p>
-                        <p style={{ fontSize: '14px', marginBottom: '16px' }}>Type: {currentViewer.type.toUpperCase()}</p>
-                        {currentViewer.type === 'dicom' && (
-                          <div style={{ background: '#e0f2fe', padding: '12px', borderRadius: '6px', border: '1px solid #0ea5e9' }}>
-                            <p style={{ fontSize: '13px', color: '#0369a1', fontWeight: '500' }}>
-                              <i className="fas fa-info-circle" style={{ marginRight: '6px' }}></i>
-                              DICOM Viewer Ready
-                            </p>
-                            <p style={{ fontSize: '12px', color: '#0369a1', marginTop: '4px' }}>
-                              {currentViewer.fileName.toLowerCase().endsWith('.zip') 
-                                ? 'ZIP-packaged DICOM series ready for processing'
-                                : 'DICOM file ready for medical imaging viewer'
-                              }
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      {currentViewer.description && (
-                        <p style={{ marginTop: '16px', fontStyle: 'italic', color: 'var(--text-secondary)' }}>
-                          "{currentViewer.description}"
-                        </p>
+            
+            <div style={{ flex: 1, display: 'flex', background: '#000' }}>
+              {/* DICOM Viewer Area */}
+              {currentViewer.type === 'dicom' ? (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  {/* DICOM Viewport */}
+                  <div style={{ flex: 1, position: 'relative', background: '#000' }}>
+                    <div 
+                      ref={dicomViewport}
+                      style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        background: '#000',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {!dicomViewerState.isLoaded && (
+                        <div style={{ color: 'white', textAlign: 'center' }}>
+                          <div className="spinner" style={{
+                            width: '32px',
+                            height: '32px',
+                            border: '3px solid rgba(255,255,255,0.3)',
+                            borderTop: '3px solid white',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite',
+                            margin: '0 auto 16px'
+                          }}></div>
+                          <p>Loading DICOM...</p>
+                        </div>
                       )}
+                    </div>
+                    
+                    {/* Layer Navigation Overlay */}
+                    {dicomViewerState.isLoaded && dicomViewerState.totalImages > 1 && (
+                      <>
+                        <button 
+                          className="dicom-nav-btn dicom-nav-prev" 
+                          onClick={() => navigateDicomImage('prev')}
+                          disabled={dicomViewerState.currentImageIndex === 0}
+                          style={{
+                            position: 'absolute',
+                            left: '20px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'rgba(0,0,0,0.7)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '50px',
+                            height: '50px',
+                            fontSize: '20px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <i className="fas fa-chevron-left"></i>
+                        </button>
+                        
+                        <button 
+                          className="dicom-nav-btn dicom-nav-next" 
+                          onClick={() => navigateDicomImage('next')}
+                          disabled={dicomViewerState.currentImageIndex === dicomViewerState.totalImages - 1}
+                          style={{
+                            position: 'absolute',
+                            right: '20px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'rgba(0,0,0,0.7)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '50px',
+                            height: '50px',
+                            fontSize: '20px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <i className="fas fa-chevron-right"></i>
+                        </button>
+                        
+                        {/* Layer Indicator */}
+                        <div style={{
+                          position: 'absolute',
+                          top: '20px',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          background: 'rgba(0,0,0,0.8)',
+                          color: 'white',
+                          padding: '8px 16px',
+                          borderRadius: '20px',
+                          fontSize: '14px',
+                          fontWeight: '500'
+                        }}>
+                          Layer {dicomViewerState.currentImageIndex + 1} of {dicomViewerState.totalImages}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  
+                  {/* DICOM Controls */}
+                  {dicomViewerState.isLoaded && (
+                    <div style={{
+                      background: 'rgba(0,0,0,0.9)',
+                      color: 'white',
+                      padding: '16px 20px',
+                      display: 'flex',
+                      gap: '24px',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      borderTop: '1px solid #333'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '150px' }}>
+                        <label style={{ fontSize: '13px', minWidth: '80px' }}>Window Level:</label>
+                        <input 
+                          type="range" 
+                          min="-1000" 
+                          max="1000" 
+                          value={dicomViewerState.windowLevel}
+                          onChange={(e) => adjustDicomWindow('level', e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                        <span style={{ fontSize: '13px', minWidth: '40px', fontWeight: '500' }}>
+                          {dicomViewerState.windowLevel}
+                        </span>
+                      </div>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '150px' }}>
+                        <label style={{ fontSize: '13px', minWidth: '80px' }}>Window Width:</label>
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="4000" 
+                          value={dicomViewerState.windowWidth}
+                          onChange={(e) => adjustDicomWindow('width', e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                        <span style={{ fontSize: '13px', minWidth: '40px', fontWeight: '500' }}>
+                          {dicomViewerState.windowWidth}
+                        </span>
+                      </div>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
+                        <label style={{ fontSize: '13px', minWidth: '40px' }}>Zoom:</label>
+                        <input 
+                          type="range" 
+                          min="0.1" 
+                          max="5" 
+                          step="0.1" 
+                          value={dicomViewerState.zoom}
+                          onChange={(e) => adjustDicomWindow('zoom', e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                        <span style={{ fontSize: '13px', minWidth: '40px', fontWeight: '500' }}>
+                          {dicomViewerState.zoom.toFixed(1)}x
+                        </span>
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                          className="btn btn-sm"
+                          onClick={resetDicomView}
+                          style={{ background: '#374151', color: 'white', border: 'none' }}
+                        >
+                          Reset View
+                        </button>
+                        <button 
+                          className="btn btn-sm"
+                          style={{ background: '#374151', color: 'white', border: 'none' }}
+                        >
+                          Invert
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
+              ) : (
+                /* Non-DICOM Viewer */
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '40px' }}>
+                  <div style={{ textAlign: 'center', color: '#64748b' }}>
+                    {currentViewer.thumbnail ? (
+                      <div>
+                        <img 
+                          src={currentViewer.thumbnail} 
+                          alt={currentViewer.title}
+                          style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain', borderRadius: '8px', boxShadow: 'var(--shadow-md)' }}
+                        />
+                        <h3 style={{ marginTop: '20px', color: 'var(--text-primary)' }}>{currentViewer.title}</h3>
+                        <p>Image viewer - {currentViewer.fileName}</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <i className={getFileIcon(currentViewer.fileName, currentViewer.type)} style={{
+                          fontSize: '120px',
+                          marginBottom: '24px',
+                          opacity: 0.6,
+                          color: 'var(--text-muted)'
+                        }}></i>
+                        <h3 style={{ color: 'var(--text-primary)', marginBottom: '12px' }}>{currentViewer.title}</h3>
+                        <div style={{ background: 'white', padding: '16px', borderRadius: '8px', boxShadow: 'var(--shadow-sm)', maxWidth: '400px', margin: '0 auto' }}>
+                          <p style={{ fontWeight: '500', marginBottom: '8px' }}>File: {currentViewer.fileName}</p>
+                          <p style={{ fontSize: '14px', marginBottom: '8px' }}>Size: {currentViewer.fileSize}</p>
+                          <p style={{ fontSize: '14px', marginBottom: '16px' }}>Type: {currentViewer.type.toUpperCase()}</p>
+                        </div>
+                        {currentViewer.description && (
+                          <p style={{ marginTop: '16px', fontStyle: 'italic', color: 'var(--text-secondary)' }}>
+                            "{currentViewer.description}"
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               
               {/* Comments Sidebar */}
               <div style={{ 
