@@ -85,6 +85,53 @@ const DicomViewer = () => {
       document.getElementById('mediaTitle').value = '';
       document.getElementById('mediaDescription').value = '';
       document.getElementById('uploadFileBtn').disabled = true;
+      
+      // Reset upload zone
+      const uploadZone = document.getElementById('fileUploadArea');
+      if (uploadZone) {
+        uploadZone.innerHTML = `
+          <i class="fas fa-cloud-upload-alt"></i>
+          <p>Drop files here or click to browse</p>
+          <input type="file" id="fileInput" accept=".dcm,.dicom,.jpg,.jpeg,.png,.mp4,.avi,.mov" style="display: none;">
+        `;
+        
+        // Re-attach event listeners
+        setTimeout(() => {
+          document.getElementById('fileInput')?.addEventListener('change', (e) => handleFileSelection(e));
+          document.getElementById('fileUploadArea')?.addEventListener('click', () => {
+            document.getElementById('fileInput')?.click();
+          });
+          
+          // Add drag and drop support
+          const uploadArea = document.getElementById('fileUploadArea');
+          if (uploadArea) {
+            uploadArea.addEventListener('dragover', (e) => {
+              e.preventDefault();
+              uploadArea.style.borderColor = 'var(--primary-color)';
+              uploadArea.style.background = 'rgba(99, 102, 241, 0.05)';
+            });
+            
+            uploadArea.addEventListener('dragleave', (e) => {
+              e.preventDefault();
+              uploadArea.style.borderColor = 'var(--border-color)';
+              uploadArea.style.background = '';
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+              e.preventDefault();
+              uploadArea.style.borderColor = 'var(--border-color)';
+              uploadArea.style.background = '';
+              
+              const files = e.dataTransfer.files;
+              if (files.length > 0) {
+                const fileInput = document.getElementById('fileInput');
+                fileInput.files = files;
+                handleFileSelection({ target: { files: [files[0]] } });
+              }
+            });
+          }
+        }, 100);
+      }
     };
 
     const nextStep = () => {
