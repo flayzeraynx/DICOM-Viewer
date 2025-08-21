@@ -689,7 +689,7 @@ const DicomViewer = () => {
                   <div className="option-content">
                     <i className="fas fa-x-ray"></i>
                     <span>DICOM</span>
-                    <p>Medical imaging format (.dcm, .dicom)</p>
+                    <p>Medical imaging format (.dcm, .dicom, .zip)</p>
                   </div>
                 </label>
                 <label className="file-type-option">
