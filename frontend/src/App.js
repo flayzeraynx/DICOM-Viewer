@@ -517,34 +517,27 @@ const DicomViewer = () => {
     };
   };
 
-  const navigateDicomImage = (direction) => {
+  const navigateDicomImage = async (direction) => {
     const newIndex = direction === 'next' 
       ? Math.min(dicomViewerState.currentImageIndex + 1, dicomViewerState.totalImages - 1)
       : Math.max(dicomViewerState.currentImageIndex - 1, 0);
     
-    if (newIndex !== dicomViewerState.currentImageIndex && dicomViewport.current) {
-      const imageId = dicomViewerState.imageIds[newIndex];
-      
-      // Try cornerstone first, fall back to canvas
-      if (window.cornerstone) {
-        try {
-          const demoImage = createDemoDicomImage(imageId, newIndex);
-          window.cornerstone.displayImage(dicomViewport.current, demoImage);
-        } catch (error) {
-          console.log('Cornerstone navigation failed, using canvas:', error);
-          renderDicomToCanvas(imageId, newIndex);
-        }
-      } else {
-        // Use canvas fallback
-        renderDicomToCanvas(imageId, newIndex);
+    if (newIndex !== dicomViewerState.currentImageIndex && dicomViewport.current && window.cornerstone) {
+      try {
+        const imageId = dicomViewerState.imageIds[newIndex];
+        const image = await window.cornerstone.loadImage(imageId);
+        await window.cornerstone.displayImage(dicomViewport.current, image);
+        
+        setDicomViewerState(prev => ({
+          ...prev,
+          currentImageIndex: newIndex
+        }));
+        
+        console.log(`Navigated to image ${newIndex + 1} of ${dicomViewerState.totalImages}`);
+      } catch (error) {
+        console.error('Error navigating DICOM image:', error);
+        showNotification('Error loading DICOM image', 'warning');
       }
-      
-      setDicomViewerState(prev => ({
-        ...prev,
-        currentImageIndex: newIndex
-      }));
-      
-      console.log(`Navigated to layer ${newIndex + 1} of ${dicomViewerState.totalImages}`);
     }
   };
 
