@@ -413,19 +413,83 @@ const DicomViewer = () => {
       const modal = document.getElementById('viewerModal');
       modal.classList.add('active');
       
-      // Update viewer content based on media ID
-      const titles = {
-        'sample-1': 'Knee X-Ray',
-        'sample-2': 'Recovery Progress'
-      };
+      // Get media data (from stored items or default samples)
+      let media = null;
+      if (window.mediaItemsData && window.mediaItemsData[mediaId]) {
+        media = window.mediaItemsData[mediaId];
+      } else {
+        // Default sample data
+        const titles = {
+          'sample-1': 'Knee X-Ray',
+          'sample-2': 'Recovery Progress'
+        };
+        
+        const metadata = {
+          'sample-1': 'XRAY • 8/19/2025',
+          'sample-2': 'VIDEO • 8/14/2025'
+        };
+        
+        media = {
+          id: mediaId,
+          title: titles[mediaId] || 'Media Viewer',
+          uploadDate: new Date().toISOString(),
+          type: mediaId === 'sample-1' ? 'xray' : 'video',
+          thumbnail: null,
+          url: null
+        };
+      }
       
-      const metadata = {
-        'sample-1': 'XRAY • 8/19/2025',
-        'sample-2': 'VIDEO • 8/14/2025'
-      };
+      // Update viewer content
+      document.getElementById('viewerTitle').textContent = media.title;
+      const uploadDate = new Date(media.uploadDate).toLocaleDateString();
+      document.getElementById('viewerMetadata').textContent = 
+        `${media.type.toUpperCase()} • ${uploadDate}${media.fileSize ? ' • ' + media.fileSize : ''}`;
       
-      document.getElementById('viewerTitle').textContent = titles[mediaId] || 'Media Viewer';
-      document.getElementById('viewerMetadata').textContent = metadata[mediaId] || 'Unknown';
+      // Update viewer display based on media type
+      updateViewerDisplay(media);
+    };
+
+    const updateViewerDisplay = (media) => {
+      const viewerContent = document.getElementById('viewerContent');
+      const placeholder = document.getElementById('placeholder');
+      
+      if (media.thumbnail && (media.type === 'image' || media.type === 'xray')) {
+        // Show actual image
+        placeholder.innerHTML = `
+          <img src="${media.thumbnail}" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 8px;">
+          <h3 style="margin-top: 16px;">${media.title}</h3>
+          <p>Image viewer - ${media.fileName || 'Image file'}</p>
+        `;
+      } else if (media.type === 'video' && media.url) {
+        // Show video player
+        placeholder.innerHTML = `
+          <video controls style="max-width: 100%; max-height: 400px; border-radius: 8px;">
+            <source src="${media.url}" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+          <h3 style="margin-top: 16px;">${media.title}</h3>
+          <p>Video player - ${media.fileName || 'Video file'}</p>
+        `;
+      } else if (media.type === 'dicom') {
+        // Show DICOM viewer placeholder
+        const fileIcon = media.fileName && media.fileName.toLowerCase().endsWith('.zip') ? 'fas fa-file-archive' : 'fas fa-x-ray';
+        placeholder.innerHTML = `
+          <i class="${fileIcon}" style="font-size: 80px; margin-bottom: 20px; opacity: 0.5; color: var(--primary-color);"></i>
+          <h3>DICOM Viewer Ready</h3>
+          <p><strong>${media.title}</strong></p>
+          <p>${media.fileName ? `File: ${media.fileName}` : 'DICOM file ready for viewing'}</p>
+          <p style="font-size: 12px; margin-top: 10px; opacity: 0.7;">Advanced DICOM functionality available with cornerstone.js</p>
+        `;
+      } else {
+        // Default placeholder
+        const fileIcon = getFileIcon({ name: media.fileName || '' }, media.type);
+        placeholder.innerHTML = `
+          <i class="${fileIcon}" style="font-size: 80px; margin-bottom: 20px; opacity: 0.5; color: var(--primary-color);"></i>
+          <h3>${media.title}</h3>
+          <p>${media.fileName ? `File: ${media.fileName}` : 'Media file ready for viewing'}</p>
+          <p style="font-size: 12px; margin-top: 10px; opacity: 0.7;">Viewer ready for ${media.type.toUpperCase()} files</p>
+        `;
+      }
     };
 
     const closeViewer = () => {
