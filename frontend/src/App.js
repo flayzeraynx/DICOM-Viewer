@@ -66,7 +66,7 @@ const DicomViewer = () => {
   };
 
   // Create a ref for the file input
-  const fileInputRef = React.useRef(null);
+  const fileInputRef = useRef(null);
 
   const handleUploadAreaClick = () => {
     console.log('Upload area clicked');
