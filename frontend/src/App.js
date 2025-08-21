@@ -81,7 +81,7 @@ const DicomViewer = () => {
 
     setIsProcessing(true);
 
-    // Simulate upload processing
+    // Simulate upload processing with realistic timing
     setTimeout(() => {
       const newMediaItem = {
         id: 'media-' + Date.now(),
@@ -97,16 +97,25 @@ const DicomViewer = () => {
       // Add to media library
       setMediaItems(prev => [newMediaItem, ...prev]);
       
-      // Reset form and close modal
+      // Close upload modal first
       setUploadModalOpen(false);
+      setIsProcessing(false);
+      
+      // Reset form
       setCurrentStep(1);
       setSelectedFile(null);
       setSelectedFileType('');
       setUploadForm({ title: '', description: '' });
-      setIsProcessing(false);
 
+      // Show success notification
       showNotification(`"${newMediaItem.title}" uploaded successfully!`, 'success');
-    }, 2000);
+      
+      // Auto-open the viewer for the uploaded file after a brief delay
+      setTimeout(() => {
+        setCurrentViewer(newMediaItem);
+      }, 500);
+      
+    }, 2000); // 2 second upload simulation
   };
 
   const showNotification = (message, type = 'info') => {
