@@ -188,28 +188,42 @@ const DicomViewer = () => {
   };
 
   const loadDicomImage = async (mediaItem) => {
-    if (!mediaItem.dicomImageIds || !window.cornerstone || !dicomViewport.current) {
-      console.log('DICOM not available or no image IDs');
-      return;
-    }
-
+    console.log('Loading DICOM for:', mediaItem);
+    
+    // Always try to load DICOM, even without cornerstone for demo
     try {
-      // Enable cornerstone on the viewport
-      window.cornerstone.enable(dicomViewport.current);
-      
-      // For demo purposes, we'll create sample DICOM-like images
-      const imageIds = [];
+      // Set loading state first
+      setDicomViewerState(prev => ({ ...prev, isLoaded: false }));
       
       if (mediaItem.type === 'dicom') {
         // Create demo DICOM layers
+        const imageIds = [];
         for (let i = 0; i < 5; i++) {
           imageIds.push(`demo-dicom-${mediaItem.id}-${i}`);
         }
         
-        // Load first image (demo)
-        const demoImage = createDemoDicomImage(imageIds[0], 0);
-        await window.cornerstone.displayImage(dicomViewport.current, demoImage);
+        // Try cornerstone if available
+        if (window.cornerstone && dicomViewport.current) {
+          try {
+            console.log('Initializing cornerstone viewport...');
+            window.cornerstone.enable(dicomViewport.current);
+            
+            // Load first demo image
+            const demoImage = createDemoDicomImage(imageIds[0], 0);
+            await window.cornerstone.displayImage(dicomViewport.current, demoImage);
+            console.log('Cornerstone image loaded successfully');
+          } catch (cornerstoneError) {
+            console.error('Cornerstone error:', cornerstoneError);
+            // Fall back to canvas rendering
+            renderDicomToCanvas(imageIds[0], 0);
+          }
+        } else {
+          console.log('Cornerstone not available, using canvas fallback');
+          // Fall back to canvas rendering
+          renderDicomToCanvas(imageIds[0], 0);
+        }
         
+        // Update state to show loaded
         setDicomViewerState({
           currentImageIndex: 0,
           totalImages: imageIds.length,
@@ -220,13 +234,79 @@ const DicomViewer = () => {
           isLoaded: true
         });
         
-        console.log(`Loaded DICOM with ${imageIds.length} images`);
+        console.log(`DICOM loaded with ${imageIds.length} layers`);
       }
       
     } catch (error) {
       console.error('Error loading DICOM:', error);
-      showNotification('Error loading DICOM file', 'warning');
+      showNotification('Error loading DICOM file - using fallback display', 'warning');
+      
+      // Force show as loaded with fallback display
+      setDicomViewerState(prev => ({
+        ...prev,
+        isLoaded: true,
+        totalImages: 5,
+        currentImageIndex: 0
+      }));
     }
+  };
+
+  const renderDicomToCanvas = (imageId, layerIndex) => {
+    if (!dicomViewport.current) return;
+    
+    // Create a canvas fallback for DICOM display
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.maxWidth = '512px';
+    canvas.style.maxHeight = '512px';
+    canvas.style.objectFit = 'contain';
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Create medical imaging pattern
+    const imageData = ctx.createImageData(512, 512);
+    const data = imageData.data;
+    
+    for (let i = 0; i < data.length; i += 4) {
+      const x = (i / 4) % 512;
+      const y = Math.floor((i / 4) / 512);
+      
+      const centerX = 256;
+      const centerY = 256;
+      const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+      
+      // Layer-specific variations
+      const layerVariation = (layerIndex + 1) * 20;
+      let intensity = 0;
+      
+      // Create brain-like patterns
+      if (distance < 200) {
+        intensity = Math.max(0, 200 - distance + layerVariation + Math.sin(x / 10) * 30 + Math.cos(y / 8) * 20);
+      }
+      
+      // Add some anatomical-like structures
+      if (distance > 100 && distance < 150) {
+        intensity += Math.sin((x + y) / 15) * 40;
+      }
+      
+      intensity = Math.min(255, Math.max(0, intensity));
+      
+      data[i] = intensity;     // R
+      data[i + 1] = intensity; // G
+      data[i + 2] = intensity; // B
+      data[i + 3] = 255;       // A
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+    
+    // Clear viewport and add canvas
+    dicomViewport.current.innerHTML = '';
+    dicomViewport.current.appendChild(canvas);
+    
+    console.log(`Rendered DICOM layer ${layerIndex + 1} to canvas`);
   };
 
   const createDemoDicomImage = (imageId, layerIndex) => {
