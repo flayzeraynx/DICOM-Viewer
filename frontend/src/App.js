@@ -42,7 +42,11 @@ const DicomViewer = () => {
     windowLevel: 0,
     windowWidth: 400,
     zoom: 1,
-    isLoaded: false
+    isLoaded: false,
+    isProcessing: false,
+    availableScans: [],
+    currentScanIndex: 0,
+    error: null
   });
 
   // DICOM viewer refs
