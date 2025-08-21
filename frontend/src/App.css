@@ -535,3 +535,28 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* Animation for new media items */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* File upload zone enhanced styling */
+.upload-zone:hover {
+    border-color: var(--primary-color);
+    background: rgba(99, 102, 241, 0.02);
+    transform: translateY(-2px);
+}
+
+.upload-zone.drag-over {
+    border-color: var(--primary-color);
+    background: rgba(99, 102, 241, 0.05);
+    border-style: solid;
+}
