@@ -229,6 +229,168 @@ const DicomViewer = () => {
       showNotification('Error loading DICOM: ' + error.message, 'warning');
     }
   };
+  const processZipDicom = async (mediaItem) => {
+    console.log('Processing ZIP DICOM file...');
+    
+    try {
+      // Fetch the ZIP file
+      const response = await fetch(mediaItem.fileUrl);
+      const zipData = await response.arrayBuffer();
+      
+      // Extract ZIP contents
+      const zip = await window.JSZip.loadAsync(zipData);
+      console.log('ZIP loaded, files found:', Object.keys(zip.files).length);
+      
+      const dicomFiles = [];
+      const scans = {};  // Group by series
+      
+      // Process each file in the ZIP
+      for (const [filename, file] of Object.entries(zip.files)) {
+        if (!file.dir && filename.toLowerCase().match(/\.(dcm|dicom)$/)) {
+          console.log('Processing DICOM file:', filename);
+          
+          try {
+            const fileData = await file.async('arraybuffer');
+            const dicomData = window.dicomParser.parseDicom(new Uint8Array(fileData));
+            
+            // Extract series information
+            const seriesUID = dicomData.string('x0020000e') || 'unknown-series';
+            const seriesDescription = dicomData.string('x0008103e') || 'Unknown Series';
+            const instanceNumber = parseInt(dicomData.string('x00200013')) || 0;
+            
+            if (!scans[seriesUID]) {
+              scans[seriesUID] = {
+                seriesUID,
+                description: seriesDescription,
+                images: []
+              };
+            }
+            
+            // Create image URL for this DICOM file
+            const imageBlob = new Blob([fileData], { type: 'application/dicom' });
+            const imageUrl = URL.createObjectURL(imageBlob);
+            
+            scans[seriesUID].images.push({
+              filename,
+              instanceNumber,
+              imageId: `wadouri:${imageUrl}`,
+              url: imageUrl
+            });
+            
+          } catch (parseError) {
+            console.warn('Failed to parse DICOM file:', filename, parseError);
+          }
+        }
+      }
+      
+      // Sort images in each series by instance number
+      const availableScans = Object.values(scans).map(scan => ({
+        ...scan,
+        images: scan.images.sort((a, b) => a.instanceNumber - b.instanceNumber)
+      }));
+      
+      console.log('Processed scans:', availableScans);
+      
+      if (availableScans.length === 0) {
+        throw new Error('No valid DICOM files found in ZIP');
+      }
+      
+      // Load the first scan
+      setDicomViewerState(prev => ({
+        ...prev,
+        availableScans,
+        currentScanIndex: 0,
+        isProcessing: false
+      }));
+      
+      await loadScanSeries(availableScans[0]);
+      
+    } catch (error) {
+      console.error('Error processing ZIP:', error);
+      throw new Error('Failed to process ZIP file: ' + error.message);
+    }
+  };
+
+  const processSingleDicom = async (mediaItem) => {
+    console.log('Processing single DICOM file...');
+    
+    try {
+      const response = await fetch(mediaItem.fileUrl);
+      const fileData = await response.arrayBuffer();
+      
+      const dicomData = window.dicomParser.parseDicom(new Uint8Array(fileData));
+      const seriesDescription = dicomData.string('x0008103e') || mediaItem.title;
+      
+      const imageBlob = new Blob([fileData], { type: 'application/dicom' });
+      const imageUrl = URL.createObjectURL(imageBlob);
+      
+      const availableScans = [{
+        seriesUID: 'single-dicom',
+        description: seriesDescription,
+        images: [{
+          filename: mediaItem.fileName,
+          instanceNumber: 1,
+          imageId: `wadouri:${imageUrl}`,
+          url: imageUrl
+        }]
+      }];
+      
+      setDicomViewerState(prev => ({
+        ...prev,
+        availableScans,
+        currentScanIndex: 0,
+        isProcessing: false
+      }));
+      
+      await loadScanSeries(availableScans[0]);
+      
+    } catch (error) {
+      console.error('Error processing single DICOM:', error);
+      throw new Error('Failed to process DICOM file: ' + error.message);
+    }
+  };
+
+  const loadScanSeries = async (scan) => {
+    console.log('Loading scan series:', scan.description, 'with', scan.images?.length, 'images');
+    
+    if (!scan.images || scan.images.length === 0) {
+      throw new Error('No images in scan series');
+    }
+    
+    try {
+      // Initialize cornerstone if available
+      if (window.cornerstone && dicomViewport.current) {
+        window.cornerstone.enable(dicomViewport.current);
+        
+        // Load first image
+        const firstImage = await window.cornerstone.loadImage(scan.images[0].imageId);
+        await window.cornerstone.displayImage(dicomViewport.current, firstImage);
+        
+        console.log('First DICOM image loaded successfully');
+      }
+      
+      setDicomViewerState(prev => ({
+        ...prev,
+        currentImageIndex: 0,
+        totalImages: scan.images.length,
+        imageIds: scan.images.map(img => img.imageId),
+        isLoaded: true,
+        isProcessing: false,
+        error: null
+      }));
+      
+    } catch (error) {
+      console.error('Error loading scan series:', error);
+      throw new Error('Failed to load DICOM images: ' + error.message);
+    }
+  };
+
+  const switchScan = async (scanIndex) => {
+    if (scanIndex >= 0 && scanIndex < dicomViewerState.availableScans.length) {
+      setDicomViewerState(prev => ({ ...prev, currentScanIndex: scanIndex, isProcessing: true }));
+      await loadScanSeries(dicomViewerState.availableScans[scanIndex]);
+    }
+  };
 
   const renderDicomToCanvas = (imageId, layerIndex) => {
     if (!dicomViewport.current) return;
