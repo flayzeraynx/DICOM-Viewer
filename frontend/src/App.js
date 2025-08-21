@@ -27,8 +27,23 @@ const DicomViewer = () => {
       document.querySelectorAll('input[name="fileType"]').forEach(radio => {
         radio.addEventListener('change', () => {
           document.getElementById('nextStepBtn').disabled = false;
+          updateFileInputAccept(radio.value);
         });
       });
+
+    const updateFileInputAccept = (fileType) => {
+      const fileInput = document.getElementById('fileInput');
+      const accepts = {
+        dicom: '.dcm,.dicom,.zip', // Added .zip support for DICOM
+        xray: '.jpg,.jpeg,.png',
+        image: '.jpg,.jpeg,.png,.gif,.bmp,.webp',
+        video: '.mp4,.avi,.mov,.wmv,.flv,.webm'
+      };
+      
+      if (fileInput) {
+        fileInput.accept = accepts[fileType] || '*';
+      }
+    };
 
       // File input
       document.getElementById('fileInput')?.addEventListener('change', (e) => handleFileSelection(e));
