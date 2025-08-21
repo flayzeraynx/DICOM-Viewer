@@ -162,15 +162,29 @@ const DicomViewer = () => {
     const handleFileSelection = (event) => {
       const file = event.target.files[0];
       if (file) {
+        const selectedFileType = document.querySelector('input[name="fileType"]:checked')?.value || 'image';
+        
+        // Generate preview based on file type
+        generateFilePreview(file, selectedFileType);
+        
+        // Enable form validation
         validateForm();
         
-        // Update upload zone
+        // Update upload zone with file info
         const uploadZone = document.getElementById('fileUploadArea');
+        const fileSize = (file.size / 1024 / 1024).toFixed(2); // Size in MB
+        const fileIcon = getFileIcon(file, selectedFileType);
+        
         uploadZone.innerHTML = `
-          <i class="fas fa-file-check" style="color: var(--success-color); font-size: 48px; margin-bottom: 16px;"></i>
-          <p><strong>File selected:</strong> ${file.name}</p>
-          <p style="font-size: 12px; opacity: 0.7;">Click to select a different file</p>
-          <input type="file" id="fileInput" accept=".dcm,.dicom,.jpg,.jpeg,.png,.mp4,.avi,.mov" style="display: none;">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+            <i class="${fileIcon}" style="color: var(--success-color); font-size: 48px;"></i>
+            <div style="text-align: center;">
+              <p><strong>File selected:</strong> ${file.name}</p>
+              <p style="font-size: 12px; opacity: 0.7;">Size: ${fileSize} MB • Type: ${selectedFileType.toUpperCase()}</p>
+              <p style="font-size: 12px; opacity: 0.7;">Click to select a different file</p>
+            </div>
+          </div>
+          <input type="file" id="fileInput" accept=".dcm,.dicom,.zip,.jpg,.jpeg,.png,.mp4,.avi,.mov" style="display: none;">
         `;
         
         // Re-attach event listeners
@@ -178,7 +192,109 @@ const DicomViewer = () => {
         document.getElementById('fileUploadArea').addEventListener('click', () => {
           document.getElementById('fileInput').click();
         });
+        
+        // Store file for upload
+        window.selectedFileData = {
+          file: file,
+          type: selectedFileType,
+          preview: null
+        };
       }
+    };
+
+    const getFileIcon = (file, fileType) => {
+      const fileName = file.name.toLowerCase();
+      
+      if (fileType === 'dicom' || fileName.endsWith('.dcm') || fileName.endsWith('.dicom')) {
+        return 'fas fa-x-ray';
+      } else if (fileName.endsWith('.zip')) {
+        return 'fas fa-file-archive';
+      } else if (fileType === 'video' || fileName.match(/\.(mp4|avi|mov|wmv|flv|webm)$/)) {
+        return 'fas fa-video';
+      } else if (fileType === 'xray') {
+        return 'fas fa-bone';
+      } else if (fileName.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/)) {
+        return 'fas fa-image';
+      } else {
+        return 'fas fa-file';
+      }
+    };
+
+    const generateFilePreview = (file, fileType) => {
+      const fileName = file.name.toLowerCase();
+      
+      // Handle image files - generate thumbnail
+      if (fileName.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/)) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          window.selectedFileData = window.selectedFileData || {};
+          window.selectedFileData.preview = e.target.result;
+          
+          // Show immediate preview in a small preview area
+          showFilePreview(e.target.result, fileType, file.name);
+        };
+        reader.readAsDataURL(file);
+      } 
+      // Handle video files - show video icon
+      else if (fileName.match(/\.(mp4|avi|mov|wmv|flv|webm)$/)) {
+        showFilePreview(null, fileType, file.name);
+      }
+      // Handle DICOM/ZIP files - show appropriate icon
+      else {
+        showFilePreview(null, fileType, file.name);
+      }
+    };
+
+    const showFilePreview = (previewUrl, fileType, fileName) => {
+      // Find or create preview container
+      let previewContainer = document.getElementById('filePreviewContainer');
+      if (!previewContainer) {
+        previewContainer = document.createElement('div');
+        previewContainer.id = 'filePreviewContainer';
+        previewContainer.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          width: 200px;
+          background: white;
+          border: 1px solid var(--border-color);
+          border-radius: 8px;
+          padding: 12px;
+          box-shadow: var(--shadow-md);
+          z-index: 1001;
+        `;
+        document.body.appendChild(previewContainer);
+      }
+
+      const fileIcon = getFileIcon({ name: fileName }, fileType);
+      
+      previewContainer.innerHTML = `
+        <div style="text-align: center;">
+          <h4 style="margin: 0 0 8px 0; font-size: 14px;">File Preview</h4>
+          ${previewUrl ? 
+            `<img src="${previewUrl}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; margin-bottom: 8px;">` :
+            `<i class="${fileIcon}" style="font-size: 48px; color: var(--primary-color); margin-bottom: 8px;"></i>`
+          }
+          <p style="margin: 0; font-size: 12px; font-weight: 500;">${fileName}</p>
+          <p style="margin: 4px 0 0 0; font-size: 11px; color: var(--text-secondary);">${fileType.toUpperCase()} file ready to upload</p>
+          <button onclick="this.parentElement.parentElement.remove()" style="
+            margin-top: 8px;
+            padding: 4px 8px;
+            font-size: 11px;
+            background: var(--secondary-color);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+          ">Close Preview</button>
+        </div>
+      `;
+
+      // Auto-hide after 10 seconds
+      setTimeout(() => {
+        if (previewContainer && previewContainer.parentNode) {
+          previewContainer.remove();
+        }
+      }, 10000);
     };
 
     const validateForm = () => {
