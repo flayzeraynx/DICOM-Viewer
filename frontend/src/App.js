@@ -965,7 +965,7 @@ const DicomViewer = () => {
                         justifyContent: 'center'
                       }}
                     >
-                      {!dicomViewerState.isLoaded && (
+                      {dicomViewerState.isProcessing && (
                         <div style={{ color: 'white', textAlign: 'center' }}>
                           <div className="spinner" style={{
                             width: '32px',
@@ -976,10 +976,62 @@ const DicomViewer = () => {
                             animation: 'spin 1s linear infinite',
                             margin: '0 auto 16px'
                           }}></div>
-                          <p>Loading DICOM...</p>
+                          <p>Processing DICOM files...</p>
+                        </div>
+                      )}
+                      
+                      {dicomViewerState.error && (
+                        <div style={{ color: '#ef4444', textAlign: 'center', padding: '40px' }}>
+                          <i className="fas fa-exclamation-triangle" style={{ fontSize: '48px', marginBottom: '16px' }}></i>
+                          <h3>DICOM Loading Error</h3>
+                          <p>{dicomViewerState.error}</p>
+                          <button 
+                            className="btn btn-sm" 
+                            onClick={() => loadDicomImage(currentViewer)}
+                            style={{ marginTop: '16px', background: '#374151', color: 'white', border: 'none' }}
+                          >
+                            Retry Loading
+                          </button>
                         </div>
                       )}
                     </div>
+                    
+                    {/* Scan Series Selector */}
+                    {dicomViewerState.availableScans.length > 1 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '20px',
+                        left: '20px',
+                        background: 'rgba(0,0,0,0.8)',
+                        color: 'white',
+                        padding: '12px 16px',
+                        borderRadius: '8px',
+                        minWidth: '250px'
+                      }}>
+                        <label style={{ fontSize: '12px', marginBottom: '8px', display: 'block' }}>
+                          Available Scans:
+                        </label>
+                        <select 
+                          value={dicomViewerState.currentScanIndex}
+                          onChange={(e) => switchScan(parseInt(e.target.value))}
+                          style={{
+                            width: '100%',
+                            padding: '6px 8px',
+                            background: '#374151',
+                            color: 'white',
+                            border: '1px solid #6b7280',
+                            borderRadius: '4px',
+                            fontSize: '13px'
+                          }}
+                        >
+                          {dicomViewerState.availableScans.map((scan, index) => (
+                            <option key={scan.seriesUID} value={index}>
+                              {scan.description} ({scan.images?.length || 0} images)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     
                     {/* Layer Navigation Overlay */}
                     {dicomViewerState.isLoaded && dicomViewerState.totalImages > 1 && (
@@ -1003,7 +1055,8 @@ const DicomViewer = () => {
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center'
+                            justifyContent: 'center',
+                            disabled: dicomViewerState.currentImageIndex === 0 ? 'opacity: 0.3' : ''
                           }}
                         >
                           <i className="fas fa-chevron-left"></i>
@@ -1028,7 +1081,8 @@ const DicomViewer = () => {
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center'
+                            justifyContent: 'center',
+                            opacity: dicomViewerState.currentImageIndex === dicomViewerState.totalImages - 1 ? '0.3' : '1'
                           }}
                         >
                           <i className="fas fa-chevron-right"></i>
@@ -1037,7 +1091,7 @@ const DicomViewer = () => {
                         {/* Layer Indicator */}
                         <div style={{
                           position: 'absolute',
-                          top: '20px',
+                          top: dicomViewerState.availableScans.length > 1 ? '70px' : '20px',
                           left: '50%',
                           transform: 'translateX(-50%)',
                           background: 'rgba(0,0,0,0.8)',
@@ -1047,7 +1101,7 @@ const DicomViewer = () => {
                           fontSize: '14px',
                           fontWeight: '500'
                         }}>
-                          Layer {dicomViewerState.currentImageIndex + 1} of {dicomViewerState.totalImages}
+                          Image {dicomViewerState.currentImageIndex + 1} of {dicomViewerState.totalImages}
                         </div>
                       </>
                     )}
