@@ -435,45 +435,108 @@ const DicomViewer = () => {
               <div>
                 <h3>{currentViewer.title}</h3>
                 <p>{currentViewer.type.toUpperCase()} • {new Date(currentViewer.uploadDate).toLocaleDateString()} • {currentViewer.fileSize}</p>
+                {currentViewer.fileName && (
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>File: {currentViewer.fileName}</p>
+                )}
               </div>
-              <button className="btn btn-icon" onClick={closeViewer}>
-                <i className="fas fa-times"></i>
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-icon" title="Bookmark">
+                  <i className="far fa-bookmark"></i>
+                </button>
+                <button className="btn btn-icon" onClick={closeViewer}>
+                  <i className="fas fa-times"></i>
+                </button>
+              </div>
             </div>
             <div style={{
               flex: 1,
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: '#f8fafc',
-              padding: '40px'
+              background: '#f8fafc'
             }}>
-              <div style={{ textAlign: 'center', color: '#64748b' }}>
-                {currentViewer.thumbnail ? (
-                  <>
-                    <img 
-                      src={currentViewer.thumbnail} 
-                      alt={currentViewer.title}
-                      style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', borderRadius: '8px' }}
-                    />
-                    <h3 style={{ marginTop: '16px' }}>{currentViewer.title}</h3>
-                    <p>Image viewer - {currentViewer.fileName}</p>
-                  </>
-                ) : (
-                  <>
-                    <i className={getFileIcon(currentViewer.fileName, currentViewer.type)} style={{
-                      fontSize: '80px',
-                      marginBottom: '20px',
-                      opacity: 0.5,
-                      color: 'var(--primary-color)'
-                    }}></i>
-                    <h3>{currentViewer.title}</h3>
-                    <p>File: {currentViewer.fileName}</p>
-                    <p style={{ fontSize: '12px', marginTop: '10px', opacity: 0.7 }}>
-                      Viewer ready for {currentViewer.type.toUpperCase()} files
-                    </p>
-                  </>
-                )}
+              {/* Main Viewer Area */}
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
+                <div style={{ textAlign: 'center', color: '#64748b' }}>
+                  {currentViewer.thumbnail ? (
+                    <div>
+                      <img 
+                        src={currentViewer.thumbnail} 
+                        alt={currentViewer.title}
+                        style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain', borderRadius: '8px', boxShadow: 'var(--shadow-md)' }}
+                      />
+                      <h3 style={{ marginTop: '20px', color: 'var(--text-primary)' }}>{currentViewer.title}</h3>
+                      <p>Image viewer - {currentViewer.fileName}</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <i className={getFileIcon(currentViewer.fileName, currentViewer.type)} style={{
+                        fontSize: '120px',
+                        marginBottom: '24px',
+                        opacity: 0.6,
+                        color: currentViewer.type === 'dicom' ? 'var(--primary-color)' : 'var(--text-muted)'
+                      }}></i>
+                      <h3 style={{ color: 'var(--text-primary)', marginBottom: '12px' }}>{currentViewer.title}</h3>
+                      <div style={{ background: 'white', padding: '16px', borderRadius: '8px', boxShadow: 'var(--shadow-sm)', maxWidth: '400px', margin: '0 auto' }}>
+                        <p style={{ fontWeight: '500', marginBottom: '8px' }}>File: {currentViewer.fileName}</p>
+                        <p style={{ fontSize: '14px', marginBottom: '8px' }}>Size: {currentViewer.fileSize}</p>
+                        <p style={{ fontSize: '14px', marginBottom: '16px' }}>Type: {currentViewer.type.toUpperCase()}</p>
+                        {currentViewer.type === 'dicom' && (
+                          <div style={{ background: '#e0f2fe', padding: '12px', borderRadius: '6px', border: '1px solid #0ea5e9' }}>
+                            <p style={{ fontSize: '13px', color: '#0369a1', fontWeight: '500' }}>
+                              <i className="fas fa-info-circle" style={{ marginRight: '6px' }}></i>
+                              DICOM Viewer Ready
+                            </p>
+                            <p style={{ fontSize: '12px', color: '#0369a1', marginTop: '4px' }}>
+                              {currentViewer.fileName.toLowerCase().endsWith('.zip') 
+                                ? 'ZIP-packaged DICOM series ready for processing'
+                                : 'DICOM file ready for medical imaging viewer'
+                              }
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      {currentViewer.description && (
+                        <p style={{ marginTop: '16px', fontStyle: 'italic', color: 'var(--text-secondary)' }}>
+                          "{currentViewer.description}"
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Comments Sidebar */}
+              <div style={{ 
+                width: '300px', 
+                background: 'var(--sidebar-bg)', 
+                borderLeft: '1px solid var(--border-color)',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)' }}>
+                  <h4>Comments</h4>
+                </div>
+                <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
+                  <p style={{ color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>
+                    No comments yet
+                  </p>
+                </div>
+                <div style={{ padding: '20px', borderTop: '1px solid var(--border-color)' }}>
+                  <textarea 
+                    placeholder="Add a comment about this image..."
+                    style={{ 
+                      width: '100%', 
+                      minHeight: '60px', 
+                      padding: '8px',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      resize: 'vertical',
+                      marginBottom: '8px'
+                    }}
+                  />
+                  <button className="btn btn-primary btn-sm" style={{ width: '100%' }}>
+                    Add Comment
+                  </button>
+                </div>
               </div>
             </div>
           </div>
