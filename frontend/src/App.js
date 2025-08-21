@@ -221,7 +221,43 @@ const DicomViewer = () => {
     };
 
     // Setup event listeners after a short delay to ensure DOM is ready
-    setTimeout(setupEventListeners, 100);
+    setTimeout(() => {
+      setupEventListeners();
+      
+      // Initialize upload zone functionality
+      const uploadArea = document.getElementById('fileUploadArea');
+      if (uploadArea) {
+        uploadArea.addEventListener('click', () => {
+          document.getElementById('fileInput')?.click();
+        });
+        
+        // Add drag and drop support
+        uploadArea.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          uploadArea.style.borderColor = 'var(--primary-color)';
+          uploadArea.style.background = 'rgba(99, 102, 241, 0.05)';
+        });
+        
+        uploadArea.addEventListener('dragleave', (e) => {
+          e.preventDefault();
+          uploadArea.style.borderColor = 'var(--border-color)';
+          uploadArea.style.background = '';
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+          e.preventDefault();
+          uploadArea.style.borderColor = 'var(--border-color)';
+          uploadArea.style.background = '';
+          
+          const files = e.dataTransfer.files;
+          if (files.length > 0) {
+            const fileInput = document.getElementById('fileInput');
+            fileInput.files = files;
+            handleFileSelection({ target: { files: [files[0]] } });
+          }
+        });
+      }
+    }, 100);
   };
 
   return (
