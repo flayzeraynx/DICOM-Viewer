@@ -383,14 +383,27 @@ const DicomViewer = () => {
     
     if (newIndex !== dicomViewerState.currentImageIndex && dicomViewport.current) {
       const imageId = dicomViewerState.imageIds[newIndex];
-      const demoImage = createDemoDicomImage(imageId, newIndex);
       
-      window.cornerstone.displayImage(dicomViewport.current, demoImage);
+      // Try cornerstone first, fall back to canvas
+      if (window.cornerstone) {
+        try {
+          const demoImage = createDemoDicomImage(imageId, newIndex);
+          window.cornerstone.displayImage(dicomViewport.current, demoImage);
+        } catch (error) {
+          console.log('Cornerstone navigation failed, using canvas:', error);
+          renderDicomToCanvas(imageId, newIndex);
+        }
+      } else {
+        // Use canvas fallback
+        renderDicomToCanvas(imageId, newIndex);
+      }
       
       setDicomViewerState(prev => ({
         ...prev,
         currentImageIndex: newIndex
       }));
+      
+      console.log(`Navigated to layer ${newIndex + 1} of ${dicomViewerState.totalImages}`);
     }
   };
 
