@@ -308,10 +308,105 @@ const DicomViewer = () => {
       const description = document.getElementById('mediaDescription').value.trim();
       const fileType = document.querySelector('input[name="fileType"]:checked').value;
       
-      if (!title) return;
+      if (!title || !window.selectedFileData) return;
 
-      showNotification('File uploaded successfully! (Demo mode)', 'success');
+      const file = window.selectedFileData.file;
+      const preview = window.selectedFileData.preview;
+
+      // Create new media item
+      const mediaItem = {
+        id: 'media-' + Date.now(),
+        title,
+        description,
+        type: fileType,
+        fileName: file.name,
+        fileSize: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+        fileType: file.type,
+        uploadDate: new Date().toISOString(),
+        thumbnail: preview,
+        url: preview || null // In real app, this would be uploaded to server
+      };
+
+      // Add to media library immediately
+      addMediaItemToLibrary(mediaItem);
+      
+      // Show success notification
+      showNotification(`${title} uploaded successfully!`, 'success');
+      
+      // Close modal and clean up
       closeUploadModal();
+      
+      // Clean up preview
+      const previewContainer = document.getElementById('filePreviewContainer');
+      if (previewContainer) {
+        previewContainer.remove();
+      }
+      
+      // Clean up stored data
+      window.selectedFileData = null;
+    };
+
+    const addMediaItemToLibrary = (mediaItem) => {
+      const mediaGrid = document.getElementById('mediaGrid');
+      if (!mediaGrid) return;
+
+      // Create media item HTML
+      const mediaItemHtml = createMediaItemHTML(mediaItem);
+      
+      // Add to beginning of grid
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = mediaItemHtml;
+      const newMediaElement = tempDiv.firstElementChild;
+      
+      // Add click listener to new item
+      newMediaElement.addEventListener('click', () => {
+        openViewer(mediaItem.id);
+      });
+      
+      // Insert at beginning
+      mediaGrid.insertBefore(newMediaElement, mediaGrid.firstChild);
+      
+      // Update counters
+      const allCount = document.getElementById('allCount');
+      if (allCount) {
+        const currentCount = parseInt(allCount.textContent) || 0;
+        allCount.textContent = currentCount + 1;
+      }
+      
+      // Add to stored media items (in real app, this would be saved to server)
+      if (!window.mediaItems) window.mediaItems = [];
+      window.mediaItems.unshift(mediaItem);
+      
+      // Store viewer data for this item
+      window.mediaItemsData = window.mediaItemsData || {};
+      window.mediaItemsData[mediaItem.id] = mediaItem;
+    };
+
+    const createMediaItemHTML = (item) => {
+      const uploadDate = new Date(item.uploadDate).toLocaleDateString();
+      const fileTypeIcon = getFileIcon({ name: item.fileName }, item.type);
+      
+      return `
+        <div class="media-item" data-media-id="${item.id}" style="animation: slideInUp 0.3s ease-out;">
+          <div class="media-thumbnail">
+            ${item.thumbnail 
+              ? `<img src="${item.thumbnail}" alt="${item.title}" style="width: 100%; height: 100%; object-fit: cover;">`
+              : `<i class="${fileTypeIcon}"></i>`
+            }
+          </div>
+          <div class="media-info">
+            <div class="media-title">${item.title}</div>
+            <div class="media-metadata">${uploadDate} • ${item.type.toUpperCase()} • ${item.fileSize}</div>
+            <div class="media-description">${item.description || 'No description'}</div>
+            <div class="media-actions">
+              <button class="btn btn-sm btn-secondary">
+                <i class="fas fa-eye"></i>
+                View
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
     };
 
     const openViewer = (mediaId) => {
