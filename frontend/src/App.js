@@ -728,7 +728,7 @@ const DicomViewer = () => {
                 <input 
                   type="file" 
                   id="fileInput" 
-                  accept=".dcm,.dicom,.jpg,.jpeg,.png,.mp4,.avi,.mov" 
+                  accept=".dcm,.dicom,.zip,.jpg,.jpeg,.png,.mp4,.avi,.mov,.wmv,.flv,.webm,.gif,.bmp,.webp" 
                   style={{ display: 'none' }}
                 />
               </div>
