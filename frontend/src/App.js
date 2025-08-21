@@ -346,10 +346,15 @@ const DicomViewer = () => {
 
             <div className="upload-step" id="uploadStep2">
               <h4>Step 2: Upload File & Add Details</h4>
-              <div className="upload-zone" id="fileUploadArea">
+              <div className="upload-zone" id="fileUploadArea" style={{ cursor: 'pointer' }}>
                 <i className="fas fa-cloud-upload-alt"></i>
                 <p>Drop files here or click to browse</p>
-                <input type="file" id="fileInput" accept=".dcm,.dicom,.jpg,.jpeg,.png,.mp4,.avi,.mov" />
+                <input 
+                  type="file" 
+                  id="fileInput" 
+                  accept=".dcm,.dicom,.jpg,.jpeg,.png,.mp4,.avi,.mov" 
+                  style={{ display: 'none' }}
+                />
               </div>
               
               <div className="form-group">
