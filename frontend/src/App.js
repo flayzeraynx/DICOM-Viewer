@@ -55,8 +55,8 @@ const DicomViewer = () => {
       if (window.cornerstone && window.cornerstoneWADOImageLoader) {
         try {
           // Configure cornerstone
-          cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
-          cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+          window.cornerstoneWADOImageLoader.external.cornerstone = window.cornerstone;
+          window.cornerstoneWADOImageLoader.external.dicomParser = window.dicomParser;
           
           // Configure image loader
           const config = {
@@ -64,7 +64,7 @@ const DicomViewer = () => {
             startWebWorkersOnDemand: true,
           };
           
-          cornerstoneWADOImageLoader.webWorkerManager.initialize(config);
+          window.cornerstoneWADOImageLoader.webWorkerManager.initialize(config);
           console.log('Cornerstone initialized successfully');
         } catch (error) {
           console.error('Error initializing cornerstone:', error);
