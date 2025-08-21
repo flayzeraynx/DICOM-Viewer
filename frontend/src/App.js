@@ -194,64 +194,39 @@ const DicomViewer = () => {
   const loadDicomImage = async (mediaItem) => {
     console.log('Loading DICOM for:', mediaItem);
     
-    // Always try to load DICOM, even without cornerstone for demo
+    setDicomViewerState(prev => ({ 
+      ...prev, 
+      isLoaded: false, 
+      isProcessing: true, 
+      error: null,
+      availableScans: [],
+      currentScanIndex: 0
+    }));
+    
     try {
-      // Set loading state first
-      setDicomViewerState(prev => ({ ...prev, isLoaded: false }));
-      
-      if (mediaItem.type === 'dicom') {
-        // Create demo DICOM layers
-        const imageIds = [];
-        for (let i = 0; i < 5; i++) {
-          imageIds.push(`demo-dicom-${mediaItem.id}-${i}`);
-        }
+      if (mediaItem.type === 'dicom' && mediaItem.fileUrl) {
+        console.log('Processing DICOM file:', mediaItem.fileName);
         
-        // Try cornerstone if available
-        if (window.cornerstone && dicomViewport.current) {
-          try {
-            console.log('Initializing cornerstone viewport...');
-            window.cornerstone.enable(dicomViewport.current);
-            
-            // Load first demo image
-            const demoImage = createDemoDicomImage(imageIds[0], 0);
-            await window.cornerstone.displayImage(dicomViewport.current, demoImage);
-            console.log('Cornerstone image loaded successfully');
-          } catch (cornerstoneError) {
-            console.error('Cornerstone error:', cornerstoneError);
-            // Fall back to canvas rendering
-            renderDicomToCanvas(imageIds[0], 0);
-          }
+        // Check if it's a ZIP file
+        if (mediaItem.fileName.toLowerCase().endsWith('.zip')) {
+          await processZipDicom(mediaItem);
+        } else if (mediaItem.fileName.toLowerCase().match(/\.(dcm|dicom)$/)) {
+          await processSingleDicom(mediaItem);
         } else {
-          console.log('Cornerstone not available, using canvas fallback');
-          // Fall back to canvas rendering
-          renderDicomToCanvas(imageIds[0], 0);
+          throw new Error('Unsupported DICOM file format');
         }
-        
-        // Update state to show loaded
-        setDicomViewerState({
-          currentImageIndex: 0,
-          totalImages: imageIds.length,
-          imageIds: imageIds,
-          windowLevel: 0,
-          windowWidth: 400,
-          zoom: 1,
-          isLoaded: true
-        });
-        
-        console.log(`DICOM loaded with ${imageIds.length} layers`);
+      } else {
+        throw new Error('Invalid DICOM file or missing file URL');
       }
       
     } catch (error) {
       console.error('Error loading DICOM:', error);
-      showNotification('Error loading DICOM file - using fallback display', 'warning');
-      
-      // Force show as loaded with fallback display
       setDicomViewerState(prev => ({
         ...prev,
-        isLoaded: true,
-        totalImages: 5,
-        currentImageIndex: 0
+        isProcessing: false,
+        error: error.message || 'Failed to load DICOM file'
       }));
+      showNotification('Error loading DICOM: ' + error.message, 'warning');
     }
   };
 
