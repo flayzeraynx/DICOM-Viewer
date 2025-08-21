@@ -33,6 +33,11 @@ const DicomViewer = () => {
       // File input
       document.getElementById('fileInput')?.addEventListener('change', (e) => handleFileSelection(e));
       document.getElementById('mediaTitle')?.addEventListener('input', () => validateForm());
+      
+      // Upload zone click handler
+      document.getElementById('fileUploadArea')?.addEventListener('click', () => {
+        document.getElementById('fileInput')?.click();
+      });
 
       // Media items
       document.querySelectorAll('.media-item').forEach(item => {
