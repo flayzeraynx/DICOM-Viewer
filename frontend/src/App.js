@@ -322,7 +322,7 @@ const DicomViewer = () => {
                   <h4>Step 2: Upload File & Add Details</h4>
                   
                   {/* File Upload Area */}
-                  <div className="upload-zone" style={{ position: 'relative', cursor: 'pointer' }}>
+                  <div className="upload-zone" onClick={handleUploadAreaClick} style={{ cursor: 'pointer' }}>
                     {isProcessing ? (
                       <div style={{ textAlign: 'center', padding: '40px 20px' }}>
                         <div className="spinner" style={{
@@ -355,24 +355,16 @@ const DicomViewer = () => {
                         <p>Drop files here or click to browse</p>
                       </>
                     )}
-                    
-                    <input 
-                      type="file" 
-                      accept={fileTypeOptions[selectedFileType]?.accept || '*'}
-                      onChange={handleFileSelection}
-                      onClick={(e) => e.target.value = null} // Reset input to allow same file selection
-                      style={{ 
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        opacity: 0,
-                        cursor: 'pointer',
-                        zIndex: 10
-                      }}
-                    />
                   </div>
+                  
+                  {/* Hidden File Input */}
+                  <input 
+                    ref={fileInputRef}
+                    type="file" 
+                    accept={fileTypeOptions[selectedFileType]?.accept || '*'}
+                    onChange={handleFileSelection}
+                    style={{ display: 'none' }}
+                  />
                   
                   {/* Form Fields */}
                   <div className="form-group">
