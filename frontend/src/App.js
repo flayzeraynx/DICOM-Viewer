@@ -44,9 +44,16 @@ const DicomViewer = () => {
   };
 
   const handleFileSelection = (event) => {
+    console.log('File selection triggered', event);
     const file = event.target.files[0];
-    if (!file) return;
+    console.log('Selected file:', file);
+    
+    if (!file) {
+      console.log('No file selected');
+      return;
+    }
 
+    console.log('Starting file processing for:', file.name);
     setIsProcessing(true);
     setSelectedFile(file);
 
@@ -54,6 +61,7 @@ const DicomViewer = () => {
     setTimeout(() => {
       setIsProcessing(false);
       showNotification(`File "${file.name}" selected successfully!`, 'success');
+      console.log('File processing completed');
     }, 1500);
   };
 
