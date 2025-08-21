@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DICOM Viewer - Integration Example</title>
+    <link rel="stylesheet" href="dicom-viewer.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Example of how to integrate into existing page layout */
+        .app-header {
+            background: #1e293b;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .app-header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        
+        .app-header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .integration-container {
+            height: calc(100vh - 80px); /* Adjust for header */
+        }
+        
+        /* Override some styles for integration */
+        .dicom-viewer-container {
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <!-- Example app header -->
+    <header class="app-header">
+        <h1>Medical Imaging Platform</h1>
+        <div class="user-info">
+            <span>Dr. Smith</span>
+            <div class="user-avatar" style="width: 40px; height: 40px; background: #6366f1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                DS
+            </div>
+        </div>
+    </header>
+
+    <!-- DICOM Viewer Integration -->
+    <div class="integration-container">
+        <div class="dicom-viewer-container">
+            <!-- Left Sidebar Navigation (matches Milano app style) -->
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h2>Patient Media</h2>
+                </div>
+                <nav class="sidebar-nav">
+                    <div class="nav-section">
+                        <h3>Enhanced Recovery</h3>
+                        <ul class="nav-list">
+                            <li class="nav-item">
+                                <i class="fas fa-stethoscope"></i>
+                                <span>Pre Op</span>
+                            </li>
+                            <li class="nav-item">
+                                <i class="fas fa-procedures"></i>
+                                <span>Surgery (In Hospital)</span>
+                            </li>
+                            <li class="nav-item active">
+                                <i class="fas fa-x-ray"></i>
+                                <span>DICOM</span>
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="main-content">
+                <!-- Header with patient info -->
+                <div class="content-header">
+                    <div class="patient-info">
+                        <div class="patient-avatar">
+                            <span class="avatar-initials">OK</span>
+                        </div>
+                        <div class="patient-details">
+                            <h1>Ozan Demo Kilic</h1>
+                            <p>Recovery time: 10 days / 2 Week</p>
+                        </div>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" id="uploadBtn">
+                            <i class="fas fa-upload"></i>
+                            Upload Media
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Media Library View -->
+                <div class="media-library" id="mediaLibrary">
+                    <!-- Tab Navigation -->
+                    <div class="tab-navigation">
+                        <button class="tab-btn active" data-tab="all">All media (<span id="allCount">0</span>)</button>
+                        <button class="tab-btn" data-tab="bookmarked">Bookmarked (<span id="bookmarkedCount">0</span>)</button>
+                    </div>
+
+                    <!-- Media Grid -->
+                    <div class="media-grid" id="mediaGrid">
+                        <!-- Media items will be dynamically populated -->
+                    </div>
+                </div>
+
+                <!-- DICOM Viewer Modal -->
+                <div class="viewer-modal" id="viewerModal">
+                    <div class="viewer-container">
+                        <div class="viewer-header">
+                            <div class="viewer-title">
+                                <h3 id="viewerTitle">DICOM Viewer</h3>
+                                <p id="viewerMetadata">Loading...</p>
+                            </div>
+                            <div class="viewer-controls">
+                                <button class="btn btn-icon" id="bookmarkBtn" title="Bookmark">
+                                    <i class="fas fa-bookmark"></i>
+                                </button>
+                                <button class="btn btn-icon" id="closeViewerBtn" title="Close">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="viewer-content">
+                            <!-- DICOM/Image/Video Display Area -->
+                            <div class="viewer-display">
+                                <div id="dicomViewport" class="dicom-viewport"></div>
+                                <img id="imageViewer" class="image-viewer" style="display: none;">
+                                <video id="videoViewer" class="video-viewer" controls style="display: none;"></video>
+                                
+                                <!-- DICOM Navigation Controls -->
+                                <div class="dicom-controls" id="dicomControls" style="display: none;">
+                                    <div class="control-group">
+                                        <label>Window Level:</label>
+                                        <input type="range" id="windowLevel" min="-1000" max="1000" value="0">
+                                        <span id="windowLevelValue">0</span>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>Window Width:</label>
+                                        <input type="range" id="windowWidth" min="1" max="4000" value="400">
+                                        <span id="windowWidthValue">400</span>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>Zoom:</label>
+                                        <input type="range" id="zoomControl" min="0.1" max="5" step="0.1" value="1">
+                                        <span id="zoomValue">1.0x</span>
+                                    </div>
+                                    <div class="control-group">
+                                        <button class="btn btn-sm" id="resetBtn">Reset View</button>
+                                        <button class="btn btn-sm" id="invertBtn">Invert</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Comments Panel -->
+                            <div class="comments-panel">
+                                <div class="comments-header">
+                                    <h4>Comments</h4>
+                                </div>
+                                <div class="comments-list" id="commentsList">
+                                    <!-- Comments will be populated here -->
+                                </div>
+                                <div class="comment-input">
+                                    <textarea id="commentText" placeholder="Add a comment about this image..."></textarea>
+                                    <button class="btn btn-primary" id="addCommentBtn">Add Comment</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Modal -->
+                <div class="upload-modal" id="uploadModal">
+                    <div class="upload-container">
+                        <div class="upload-header">
+                            <h3>Upload Medical Media</h3>
+                            <button class="btn btn-icon" id="closeUploadBtn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="upload-content">
+                            <div class="upload-step" id="uploadStep1">
+                                <h4>Step 1: Select File Type</h4>
+                                <div class="file-type-options">
+                                    <label class="file-type-option">
+                                        <input type="radio" name="fileType" value="dicom">
+                                        <div class="option-content">
+                                            <i class="fas fa-x-ray"></i>
+                                            <span>DICOM</span>
+                                            <p>Medical imaging format (.dcm, .dicom)</p>
+                                        </div>
+                                    </label>
+                                    <label class="file-type-option">
+                                        <input type="radio" name="fileType" value="xray">
+                                        <div class="option-content">
+                                            <i class="fas fa-bone"></i>
+                                            <span>X-Ray</span>
+                                            <p>Standard X-ray images (.jpg, .png)</p>
+                                        </div>
+                                    </label>
+                                    <label class="file-type-option">
+                                        <input type="radio" name="fileType" value="image">
+                                        <div class="option-content">
+                                            <i class="fas fa-image"></i>
+                                            <span>Image</span>
+                                            <p>Standard image formats (.jpg, .png)</p>
+                                        </div>
+                                    </label>
+                                    <label class="file-type-option">
+                                        <input type="radio" name="fileType" value="video">
+                                        <div class="option-content">
+                                            <i class="fas fa-video"></i>
+                                            <span>Video</span>
+                                            <p>Video files (.mp4, .avi, .mov)</p>
+                                        </div>
+                                    </label>
+                                </div>
+                                <button class="btn btn-primary" id="nextStepBtn" disabled>Next</button>
+                            </div>
+
+                            <div class="upload-step" id="uploadStep2" style="display: none;">
+                                <h4>Step 2: Upload File & Add Details</h4>
+                                <div class="file-upload-area" id="fileUploadArea">
+                                    <div class="upload-zone">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                        <p>Drop files here or click to browse</p>
+                                        <input type="file" id="fileInput" accept=".dcm,.dicom,.jpg,.jpeg,.png,.mp4,.avi,.mov">
+                                    </div>
+                                </div>
+                                
+                                <div class="upload-details">
+                                    <div class="form-group">
+                                        <label for="mediaTitle">Title *</label>
+                                        <input type="text" id="mediaTitle" placeholder="e.g., Knee X-Ray" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="mediaDescription">Description</label>
+                                        <textarea id="mediaDescription" placeholder="e.g., X-ray 2 days after the injury"></textarea>
+                                    </div>
+                                </div>
+                                
+                                <div class="upload-actions">
+                                    <button class="btn btn-secondary" id="backStepBtn">Back</button>
+                                    <button class="btn btn-primary" id="uploadFileBtn" disabled>Upload</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load external libraries with fallback -->
+    <script src="dicom-libraries.js"></script>
+    <script src="dicom-viewer.js"></script>
+</body>
+</html>
