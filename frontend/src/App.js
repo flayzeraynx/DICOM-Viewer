@@ -398,7 +398,7 @@ const DicomViewer = () => {
     // Clean up cornerstone viewport
     if (dicomViewport.current && window.cornerstone) {
       try {
-        cornerstone.disable(dicomViewport.current);
+        window.cornerstone.disable(dicomViewport.current);
       } catch (error) {
         console.log('Error disabling cornerstone:', error);
       }
