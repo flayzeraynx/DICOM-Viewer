@@ -105,14 +105,17 @@ const DicomViewer = () => {
         // Update upload zone
         const uploadZone = document.getElementById('fileUploadArea');
         uploadZone.innerHTML = `
-          <i class="fas fa-file-check" style="color: var(--success-color);"></i>
-          <p>File selected: ${file.name}</p>
+          <i class="fas fa-file-check" style="color: var(--success-color); font-size: 48px; margin-bottom: 16px;"></i>
+          <p><strong>File selected:</strong> ${file.name}</p>
           <p style="font-size: 12px; opacity: 0.7;">Click to select a different file</p>
-          <input type="file" id="fileInput" accept=".dcm,.dicom,.jpg,.jpeg,.png,.mp4,.avi,.mov">
+          <input type="file" id="fileInput" accept=".dcm,.dicom,.jpg,.jpeg,.png,.mp4,.avi,.mov" style="display: none;">
         `;
         
-        // Re-attach event listener
+        // Re-attach event listeners
         document.getElementById('fileInput').addEventListener('change', (e) => handleFileSelection(e));
+        document.getElementById('fileUploadArea').addEventListener('click', () => {
+          document.getElementById('fileInput').click();
+        });
       }
     };
 
