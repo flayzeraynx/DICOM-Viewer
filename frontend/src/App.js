@@ -195,7 +195,7 @@ const DicomViewer = () => {
 
     try {
       // Enable cornerstone on the viewport
-      cornerstone.enable(dicomViewport.current);
+      window.cornerstone.enable(dicomViewport.current);
       
       // For demo purposes, we'll create sample DICOM-like images
       const imageIds = [];
@@ -207,8 +207,8 @@ const DicomViewer = () => {
         }
         
         // Load first image (demo)
-        const demoImage = createDemoDicomImage(imageIds[0], i);
-        await cornerstone.displayImage(dicomViewport.current, demoImage);
+        const demoImage = createDemoDicomImage(imageIds[0], 0);
+        await window.cornerstone.displayImage(dicomViewport.current, demoImage);
         
         setDicomViewerState({
           currentImageIndex: 0,
@@ -275,7 +275,7 @@ const DicomViewer = () => {
       intercept: 0,
       windowCenter: 127,
       windowWidth: 255,
-      render: cornerstone.renderGrayscaleImage,
+      render: window.cornerstone?.renderGrayscaleImage,
       getPixelData: () => {
         const imageData = ctx.getImageData(0, 0, 512, 512);
         const pixelData = new Uint8Array(512 * 512);
@@ -305,7 +305,7 @@ const DicomViewer = () => {
       const imageId = dicomViewerState.imageIds[newIndex];
       const demoImage = createDemoDicomImage(imageId, newIndex);
       
-      cornerstone.displayImage(dicomViewport.current, demoImage);
+      window.cornerstone.displayImage(dicomViewport.current, demoImage);
       
       setDicomViewerState(prev => ({
         ...prev,
@@ -317,7 +317,7 @@ const DicomViewer = () => {
   const adjustDicomWindow = (property, value) => {
     if (!dicomViewport.current || !window.cornerstone) return;
     
-    const viewport = cornerstone.getViewport(dicomViewport.current);
+    const viewport = window.cornerstone.getViewport(dicomViewport.current);
     
     if (property === 'level') {
       viewport.voi.windowCenter = parseFloat(value);
@@ -330,12 +330,12 @@ const DicomViewer = () => {
       setDicomViewerState(prev => ({ ...prev, zoom: parseFloat(value) }));
     }
     
-    cornerstone.setViewport(dicomViewport.current, viewport);
+    window.cornerstone.setViewport(dicomViewport.current, viewport);
   };
 
   const resetDicomView = () => {
     if (dicomViewport.current && window.cornerstone) {
-      cornerstone.reset(dicomViewport.current);
+      window.cornerstone.reset(dicomViewport.current);
       setDicomViewerState(prev => ({
         ...prev,
         windowLevel: 0,
