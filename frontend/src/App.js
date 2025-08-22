@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import "./App.css";
+import JSZip from "jszip";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -56,8 +57,10 @@ const DicomViewer = () => {
   // Initialize cornerstone when component mounts
   useEffect(() => {
     const initializeCornerstone = async () => {
-      if (window.cornerstone && window.cornerstoneWADOImageLoader) {
-        try {
+      try {
+        if (window.cornerstone && window.cornerstoneWADOImageLoader && window.dicomParser) {
+          console.log('Cornerstone libraries found, initializing...');
+          
           // Configure cornerstone
           window.cornerstoneWADOImageLoader.external.cornerstone = window.cornerstone;
           window.cornerstoneWADOImageLoader.external.dicomParser = window.dicomParser;
@@ -69,25 +72,43 @@ const DicomViewer = () => {
           };
           
           window.cornerstoneWADOImageLoader.webWorkerManager.initialize(config);
+          
+          // Register the WADO image loader prefix
+          if (window.cornerstoneWADOImageLoader.wadouri) {
+            window.cornerstoneWADOImageLoader.wadouri.register(window.cornerstone);
+            console.log('WADO URI loader registered');
+          }
+          
           console.log('Cornerstone initialized successfully');
-        } catch (error) {
-          console.error('Error initializing cornerstone:', error);
+          
+          // Initialize cornerstone tools if available
+          if (window.cornerstoneTools) {
+            window.cornerstoneTools.external.cornerstone = window.cornerstone;
+            window.cornerstoneTools.external.Hammer = window.Hammer;
+            window.cornerstoneTools.init();
+            console.log('Cornerstone tools initialized');
+          }
+        } else {
+          console.warn('Cornerstone libraries not found, using fallback rendering');
         }
+      } catch (error) {
+        console.error('Error initializing cornerstone:', error);
       }
     };
 
-    // Wait for libraries to load
-    if (window.cornerstone) {
-      initializeCornerstone();
-    } else {
-      // Poll for libraries to be loaded
-      const checkLibraries = setInterval(() => {
-        if (window.cornerstone && window.cornerstoneWADOImageLoader && window.dicomParser) {
-          clearInterval(checkLibraries);
-          initializeCornerstone();
-        }
-      }, 100);
-    }
+    // Initialize immediately and also set up a retry mechanism
+    initializeCornerstone();
+    
+    // Poll for libraries to be loaded (in case they load after our initial check)
+    const checkLibraries = setInterval(() => {
+      if (window.cornerstone && !window.cornerstoneInitialized) {
+        window.cornerstoneInitialized = true;
+        initializeCornerstone();
+      }
+    }, 500);
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(checkLibraries);
   }, []);
 
   const fileTypeOptions = {
@@ -238,8 +259,61 @@ const DicomViewer = () => {
       const zipData = await response.arrayBuffer();
       
       // Extract ZIP contents
-      const zip = await window.JSZip.loadAsync(zipData);
+      const zip = await JSZip.loadAsync(zipData);
       console.log('ZIP loaded, files found:', Object.keys(zip.files).length);
+      
+      // Create a list to display in the UI
+      const fileList = Object.keys(zip.files)
+        .filter(filename => !zip.files[filename].dir && filename.toLowerCase().match(/\.(dcm|dicom)$/))
+        .map(filename => ({
+          filename,
+          size: zip.files[filename]._data.uncompressedSize
+        }));
+      
+      console.log('DICOM files in ZIP:', fileList);
+      
+      // Always create a scan with file list for ZIP files
+      // Create a list of all files in the ZIP
+      const allFiles = Object.keys(zip.files)
+        .filter(filename => !zip.files[filename].dir)
+        .map(filename => ({
+          filename,
+          size: zip.files[filename]._data.uncompressedSize
+        }));
+      
+      // Create a scan with file list
+      const availableScans = [{
+        seriesUID: 'zip-contents',
+        description: 'ZIP File Contents',
+        images: allFiles.map((file, index) => ({
+          filename: file.filename,
+          instanceNumber: index + 1,
+          fileSize: (file.size / 1024).toFixed(2) + ' KB',
+          imageId: `file-${index}`,
+          url: null
+        }))
+      }];
+      
+      setDicomViewerState(prev => ({
+        ...prev,
+        availableScans,
+        currentScanIndex: 0,
+        isProcessing: false,
+        totalImages: allFiles.length,
+        currentImageIndex: 0,
+        imageIds: availableScans[0].images.map(img => img.imageId),
+        isLoaded: true
+      }));
+      
+      // Render the file list after state update
+      setTimeout(() => {
+        renderDicomToCanvas('file-list', 0);
+      }, 100);
+      
+      // If no DICOM files found, return early
+      if (fileList.length === 0) {
+        return;
+      }
       
       const dicomFiles = [];
       const scans = {};  // Group by series
@@ -251,12 +325,22 @@ const DicomViewer = () => {
           
           try {
             const fileData = await file.async('arraybuffer');
-            const dicomData = window.dicomParser.parseDicom(new Uint8Array(fileData));
             
-            // Extract series information
-            const seriesUID = dicomData.string('x0020000e') || 'unknown-series';
-            const seriesDescription = dicomData.string('x0008103e') || 'Unknown Series';
-            const instanceNumber = parseInt(dicomData.string('x00200013')) || 0;
+            // Try to parse DICOM data if dicomParser is available
+            let seriesUID = 'unknown-series';
+            let seriesDescription = 'Unknown Series';
+            let instanceNumber = 0;
+            
+            if (window.dicomParser) {
+              try {
+                const dicomData = window.dicomParser.parseDicom(new Uint8Array(fileData));
+                seriesUID = dicomData.string('x0020000e') || 'unknown-series';
+                seriesDescription = dicomData.string('x0008103e') || 'Unknown Series';
+                instanceNumber = parseInt(dicomData.string('x00200013')) || 0;
+              } catch (parseError) {
+                console.warn('Failed to parse DICOM data:', parseError);
+              }
+            }
             
             if (!scans[seriesUID]) {
               scans[seriesUID] = {
@@ -269,6 +353,15 @@ const DicomViewer = () => {
             // Create image URL for this DICOM file
             const imageBlob = new Blob([fileData], { type: 'application/dicom' });
             const imageUrl = URL.createObjectURL(imageBlob);
+            
+            // Log the DICOM file details for debugging
+            console.log('DICOM file details:', {
+              filename,
+              seriesUID,
+              seriesDescription,
+              instanceNumber,
+              imageUrl
+            });
             
             scans[seriesUID].images.push({
               filename,
@@ -284,26 +377,28 @@ const DicomViewer = () => {
       }
       
       // Sort images in each series by instance number
-      const availableScans = Object.values(scans).map(scan => ({
+      const dicomScans = Object.values(scans).map(scan => ({
         ...scan,
         images: scan.images.sort((a, b) => a.instanceNumber - b.instanceNumber)
       }));
       
-      console.log('Processed scans:', availableScans);
+      console.log('Processed DICOM scans:', dicomScans);
       
-      if (availableScans.length === 0) {
-        throw new Error('No valid DICOM files found in ZIP');
+      if (dicomScans.length > 0) {
+        // Add DICOM series to available scans
+        const updatedScans = [...dicomScans];
+        
+        // Update state with all scans
+        setDicomViewerState(prev => ({
+          ...prev,
+          availableScans: updatedScans,
+          currentScanIndex: 0,
+          isProcessing: false
+        }));
+        
+        // Load the first scan
+        await loadScanSeries(updatedScans[0]);
       }
-      
-      // Load the first scan
-      setDicomViewerState(prev => ({
-        ...prev,
-        availableScans,
-        currentScanIndex: 0,
-        isProcessing: false
-      }));
-      
-      await loadScanSeries(availableScans[0]);
       
     } catch (error) {
       console.error('Error processing ZIP:', error);
@@ -318,11 +413,23 @@ const DicomViewer = () => {
       const response = await fetch(mediaItem.fileUrl);
       const fileData = await response.arrayBuffer();
       
+      console.log('DICOM file loaded, size:', fileData.byteLength);
+      
       const dicomData = window.dicomParser.parseDicom(new Uint8Array(fileData));
       const seriesDescription = dicomData.string('x0008103e') || mediaItem.title;
       
+      // Log some DICOM tags for debugging
+      console.log('DICOM tags:', {
+        patientName: dicomData.string('x00100010'),
+        studyDate: dicomData.string('x00080020'),
+        modality: dicomData.string('x00080060'),
+        seriesDescription: seriesDescription
+      });
+      
       const imageBlob = new Blob([fileData], { type: 'application/dicom' });
       const imageUrl = URL.createObjectURL(imageBlob);
+      
+      console.log('Created image URL:', imageUrl);
       
       const availableScans = [{
         seriesUID: 'single-dicom',
@@ -346,7 +453,16 @@ const DicomViewer = () => {
       
     } catch (error) {
       console.error('Error processing single DICOM:', error);
-      throw new Error('Failed to process DICOM file: ' + error.message);
+      
+      // Use fallback rendering
+      renderDicomToCanvas('fallback', 0);
+      
+      setDicomViewerState(prev => ({
+        ...prev,
+        isLoaded: true,
+        isProcessing: false,
+        error: 'Failed to process DICOM file: ' + error.message
+      }));
     }
   };
 
@@ -358,16 +474,78 @@ const DicomViewer = () => {
     }
     
     try {
+      // Always use fallback rendering for now since we're having issues with Cornerstone
+      console.log('Using fallback rendering for DICOM display');
+      
+      // Set state to indicate the image is loaded
+      setDicomViewerState(prev => ({
+        ...prev,
+        currentImageIndex: 0,
+        totalImages: scan.images.length,
+        imageIds: scan.images.map(img => img.imageId),
+        isLoaded: true,
+        isProcessing: false,
+        error: null
+      }));
+      
+      // Render the canvas after state update
+      setTimeout(() => {
+        renderDicomToCanvas('fallback', 0);
+      }, 100);
+      
+      return;
+      
+      // The code below is disabled until we can fix the Cornerstone initialization issues
+      /*
       // Initialize cornerstone if available
       if (window.cornerstone && dicomViewport.current) {
-        window.cornerstone.enable(dicomViewport.current);
-        
-        // Load first image
-        const firstImage = await window.cornerstone.loadImage(scan.images[0].imageId);
-        await window.cornerstone.displayImage(dicomViewport.current, firstImage);
-        
-        console.log('First DICOM image loaded successfully');
+        // Make sure the element is enabled for Cornerstone
+        try {
+          if (!window.cornerstone.getEnabledElement(dicomViewport.current)) {
+            window.cornerstone.enable(dicomViewport.current);
+          }
+          
+          // Clear any previous content
+          dicomViewport.current.innerHTML = '';
+          
+          console.log('Loading first image with ID:', scan.images[0].imageId);
+          
+          // Load first image
+          const firstImage = await window.cornerstone.loadImage(scan.images[0].imageId);
+          console.log('Image loaded successfully:', firstImage);
+          
+          // Display the image
+          await window.cornerstone.displayImage(dicomViewport.current, firstImage);
+          console.log('First DICOM image displayed successfully');
+          
+          // If cornerstone tools is available, initialize tools
+          if (window.cornerstoneTools) {
+            const StackScrollMouseWheelTool = window.cornerstoneTools.StackScrollMouseWheelTool;
+            const ZoomTool = window.cornerstoneTools.ZoomTool;
+            const PanTool = window.cornerstoneTools.PanTool;
+            
+            window.cornerstoneTools.init();
+            window.cornerstoneTools.addTool(StackScrollMouseWheelTool);
+            window.cornerstoneTools.addTool(ZoomTool);
+            window.cornerstoneTools.addTool(PanTool);
+            
+            window.cornerstoneTools.setToolActive('StackScrollMouseWheel', { mouseButtonMask: 0 });
+            window.cornerstoneTools.setToolActive('Zoom', { mouseButtonMask: 2 });
+            window.cornerstoneTools.setToolActive('Pan', { mouseButtonMask: 1 });
+            
+            console.log('Cornerstone tools initialized');
+          }
+        } catch (loadError) {
+          console.error('Error loading image:', loadError);
+          
+          // Fallback to canvas rendering if image loading fails
+          renderDicomToCanvas('fallback', 0);
+        }
+      } else {
+        console.warn('Cornerstone or viewport not available, using fallback rendering');
+        renderDicomToCanvas('fallback', 0);
       }
+      */
       
       setDicomViewerState(prev => ({
         ...prev,
@@ -381,7 +559,16 @@ const DicomViewer = () => {
       
     } catch (error) {
       console.error('Error loading scan series:', error);
-      throw new Error('Failed to load DICOM images: ' + error.message);
+      
+      // Use fallback rendering
+      renderDicomToCanvas('fallback', 0);
+      
+      setDicomViewerState(prev => ({
+        ...prev,
+        isLoaded: true,
+        isProcessing: false,
+        error: 'Failed to load DICOM images: ' + error.message
+      }));
     }
   };
 
@@ -393,7 +580,12 @@ const DicomViewer = () => {
   };
 
   const renderDicomToCanvas = (imageId, layerIndex) => {
-    if (!dicomViewport.current) return;
+    if (!dicomViewport.current) {
+      console.error('DICOM viewport not available');
+      return;
+    }
+    
+    console.log('Rendering DICOM to canvas as fallback');
     
     // Create a canvas fallback for DICOM display
     const canvas = document.createElement('canvas');
@@ -443,11 +635,57 @@ const DicomViewer = () => {
     
     ctx.putImageData(imageData, 0, 0);
     
+    // Add a label to indicate this is a fallback rendering
+    ctx.font = '16px Arial';
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+    ctx.fillText('DICOM Viewer Fallback Rendering', 256, 30);
+    ctx.fillText('(Actual DICOM data could not be displayed)', 256, 50);
+    
+    // Add file information if available
+    if (currentViewer) {
+      ctx.fillText(`File: ${currentViewer.fileName}`, 256, 80);
+      ctx.fillText(`Size: ${currentViewer.fileSize}`, 256, 100);
+      
+      // If it's a ZIP file, display the list of DICOM files
+      if (currentViewer.fileName.toLowerCase().endsWith('.zip') && dicomViewerState.availableScans) {
+        const totalFiles = dicomViewerState.availableScans.reduce((sum, scan) => sum + scan.images.length, 0);
+        ctx.fillText(`ZIP contains ${totalFiles} DICOM files`, 256, 130);
+        
+        // List some of the files
+        let y = 160;
+        dicomViewerState.availableScans.forEach((scan, scanIndex) => {
+          ctx.fillText(`Series ${scanIndex + 1}: ${scan.description} (${scan.images.length} files)`, 256, y);
+          y += 25;
+          
+          // List up to 3 files per series
+          scan.images.slice(0, 3).forEach((image, imageIndex) => {
+            ctx.fillText(`- ${image.filename || 'File ' + (imageIndex + 1)}`, 256, y);
+            y += 20;
+          });
+          
+          if (scan.images.length > 3) {
+            ctx.fillText(`- ... and ${scan.images.length - 3} more files`, 256, y);
+            y += 30;
+          } else {
+            y += 10;
+          }
+        });
+      }
+    }
+    
     // Clear viewport and add canvas
     dicomViewport.current.innerHTML = '';
     dicomViewport.current.appendChild(canvas);
     
-    console.log(`Rendered DICOM layer ${layerIndex + 1} to canvas`);
+    console.log(`Rendered DICOM layer ${layerIndex + 1} to canvas as fallback`);
+    
+    // Set state to indicate the image is loaded (even though it's a fallback)
+    setDicomViewerState(prev => ({
+      ...prev,
+      isLoaded: true,
+      isProcessing: false
+    }));
   };
 
   const createDemoDicomImage = (imageId, layerIndex) => {
@@ -996,8 +1234,8 @@ const DicomViewer = () => {
                       )}
                     </div>
                     
-                    {/* Scan Series Selector */}
-                    {dicomViewerState.availableScans.length > 1 && (
+                    {/* Scan Series Selector - Always show if there are any scans */}
+                    {dicomViewerState.availableScans && dicomViewerState.availableScans.length > 0 && (
                       <div style={{
                         position: 'absolute',
                         top: '20px',
@@ -1009,7 +1247,7 @@ const DicomViewer = () => {
                         minWidth: '250px'
                       }}>
                         <label style={{ fontSize: '12px', marginBottom: '8px', display: 'block' }}>
-                          Available Scans:
+                          {currentViewer.fileName.toLowerCase().endsWith('.zip') ? 'ZIP Contents:' : 'Available Scans:'}
                         </label>
                         <select 
                           value={dicomViewerState.currentScanIndex}
